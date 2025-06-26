@@ -4,7 +4,7 @@ FROM node:18-alpine
 # Crear directorio de aplicación
 WORKDIR /app
 
-# Copiar package.json y package-lock.json (si existe)
+# Copiar package.json y package-lock.json (en caso de que exista)
 COPY package*.json ./
 
 # Instalar dependencias
