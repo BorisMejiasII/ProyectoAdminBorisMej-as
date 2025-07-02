@@ -1,10 +1,9 @@
+version: '3.8'
+
 services:
   # Servicio de usuarios
   user-service:
-    build:
-      context: ./user-service
-      dockerfile: Dockerfile
-    container_name: user-service
+    image: microservices-proyect_user-service:latest  # ← Cambiar esto
     ports:
       - "3001:3001"
     environment:
@@ -15,14 +14,19 @@ services:
       - ./user-service/users.db:/app/users.db
     networks:
       - microservices-network
-    restart: unless-stopped
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
 
   # Servicio de tareas
   task-service:
-    build:
-      context: ./task-service
-      dockerfile: Dockerfile
-    container_name: task-service
+    image: microservices-proyect_task-service:latest  # ← Cambiar esto
     ports:
       - "3002:3002"
     environment:
@@ -36,12 +40,19 @@ services:
       - microservices-network
     depends_on:
       - user-service
-    restart: unless-stopped
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
 
   nginx-proxy-manager:
     image: 'jc21/nginx-proxy-manager:latest'
-    container_name: nginx-proxy-manager
-    restart: unless-stopped
+    # container_name: nginx-proxy-manager  ← Comentar esta línea
     ports:
       - '80:80'      # HTTP
       - '443:443'    # HTTPS  
@@ -54,14 +65,15 @@ services:
       - ./nginx-custom:/data/nginx/custom 
     networks:
       - microservices-network
-    depends_on:
-      - user-service
-      - task-service
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
 
 # Redes
 networks:
   microservices-network:
-    driver: bridge
+    driver: overlay
     name: microservices-network
 
 # Volúmenes para persistencia
