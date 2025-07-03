@@ -83,7 +83,6 @@ services:
     volumes:
       - nginx_data:/data
       - nginx_letsencrypt:/etc/letsencrypt
-      - ./nginx-custom:/data/nginx/custom:ro
     networks:
       - microservices-network
     deploy:
@@ -107,7 +106,6 @@ services:
 networks:
   microservices-network:
     driver: overlay
-    name: microservices-network
     attachable: true
     driver_opts:
       encrypted: "true"
@@ -138,6 +136,3 @@ volumes:
       type: none
       o: bind
       device: /opt/microservices/nginx_letsencrypt
-
-# Configuración global del stack
-name: microservices-stack
