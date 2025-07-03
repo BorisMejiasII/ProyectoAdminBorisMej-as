@@ -3,15 +3,15 @@ version: '3.8'
 services:
   # Servicio de usuarios
   user-service:
-    image: microservices-proyect_user-service:latest  # ← Cambiar esto
+    image: microservices-proyect_user-service:latest
     ports:
       - "3001:3001"
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - DB_PATH=/app/data/users.db
     volumes:
       - user_data:/app/data
-      - ./user-service/users.db:/app/users.db
     networks:
       - microservices-network
     deploy:
@@ -20,22 +20,32 @@ services:
         condition: on-failure
         delay: 5s
         max_attempts: 3
+        window: 120s
       update_config:
         parallelism: 1
         delay: 10s
+        failure_action: rollback
+        monitor: 60s
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
 
   # Servicio de tareas
   task-service:
-    image: microservices-proyect_task-service:latest  # ← Cambiar esto
+    image: microservices-proyect_task-service:latest
     ports:
       - "3002:3002"
     environment:
       - NODE_ENV=production
       - PORT=3002
       - USER_SERVICE_URL=http://user-service:3001
+      - DB_PATH=/app/data/tasks.db
     volumes:
       - task_data:/app/data
-      - ./task-service/tasks.db:/app/tasks.db
     networks:
       - microservices-network
     depends_on:
@@ -46,43 +56,88 @@ services:
         condition: on-failure
         delay: 5s
         max_attempts: 3
+        window: 120s
       update_config:
         parallelism: 1
         delay: 10s
+        failure_action: rollback
+        monitor: 60s
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
 
+  # Nginx Proxy Manager
   nginx-proxy-manager:
     image: 'jc21/nginx-proxy-manager:latest'
-    # container_name: nginx-proxy-manager  ← Comentar esta línea
     ports:
       - '80:80'      # HTTP
       - '443:443'    # HTTPS  
       - '81:81'      # Admin interface
     environment:
       - DB_SQLITE_FILE=/data/database.sqlite
+      - DISABLE_IPV6=true
     volumes:
       - nginx_data:/data
       - nginx_letsencrypt:/etc/letsencrypt
-      - ./nginx-custom:/data/nginx/custom 
+      - ./nginx-custom:/data/nginx/custom:ro
     networks:
       - microservices-network
     deploy:
       replicas: 1
       placement:
         constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.2'
+          memory: 256M
 
 # Redes
 networks:
   microservices-network:
     driver: overlay
     name: microservices-network
+    attachable: true
+    driver_opts:
+      encrypted: "true"
 
 # Volúmenes para persistencia
 volumes:
   user_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/microservices/user_data
   task_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/microservices/task_data
   nginx_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/microservices/nginx_data
   nginx_letsencrypt:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/microservices/nginx_letsencrypt
+
+# Configuración global del stack
+name: microservices-stack

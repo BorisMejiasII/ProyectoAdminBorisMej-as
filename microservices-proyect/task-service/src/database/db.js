@@ -1,7 +1,10 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
-const dbPath = path.join(__dirname, '../../tasks.db');
+// Usar variable de entorno o path por defecto dentro del contenedor
+const dbDir = process.env.DB_PATH ? path.dirname(process.env.DB_PATH) : '/app/data';
+const dbPath = process.env.DB_PATH || path.join(dbDir, 'tasks.db');
 
 class Database {
     constructor() {
@@ -10,12 +13,17 @@ class Database {
 
     connect() {
         return new Promise((resolve, reject) => {
+            // Crear directorio si no existe
+            if (!fs.existsSync(dbDir)) {
+                fs.mkdirSync(dbDir, { recursive: true });
+            }
+
             this.db = new sqlite3.Database(dbPath, (err) => {
                 if (err) {
                     console.error('Error connecting to SQLite database:', err.message);
                     reject(err);
                 } else {
-                    console.log('Connected to SQLite database (tasks.db)');
+                    console.log(`Connected to SQLite database (${dbPath})`);
                     this.createTables()
                         .then(() => resolve(this.db))
                         .catch(reject);
@@ -94,6 +102,5 @@ class Database {
     }
 }
 
-// Crear y exportar instancia singleton
 const database = new Database();
 module.exports = database;
